@@ -9,7 +9,7 @@ local COOLDOWN = 0.12
 local MAX_DISTANCIA = 14  
 local MULTI_HIT = 2       
 local VELOCIDAD_NORMAL = 31      
-local VELOCIDAD_NOCLIP = 7  -- Velocidad optimizada para atravesar paredes
+local VELOCIDAD_NOCLIP = 9  -- Actualizado de 7 a 9 para mayor fluidez
 
 local AuraActiva = false
 local EspActivo = false
@@ -23,7 +23,7 @@ local TitleLabel = Instance.new("TextLabel")
 
 local BotonAura = Instance.new("TextButton")
 local BotonEsp = Instance.new("TextButton")
-local BotonNoclip = Instance.new("TextButton") -- Nuevo botón
+local BotonNoclip = Instance.new("TextButton")
 
 ScreenGui.Name = "NickHubEstable"
 ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
@@ -34,7 +34,7 @@ FrameMenu.Parent = ScreenGui
 FrameMenu.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 FrameMenu.BackgroundTransparency = 0.2
 FrameMenu.Position = UDim2.new(0.05, 0, 0.2, 0)
-FrameMenu.Size = UDim2.new(0, 130, 0, 180) -- Ajustado el tamaño para el nuevo botón
+FrameMenu.Size = UDim2.new(0, 130, 0, 180)
 FrameMenu.Active = true
 FrameMenu.Draggable = true
 
@@ -141,14 +141,13 @@ local function limpiarEsp()
     end
 end
 
--- BUCLE 1: VELOCIDAD DINÁMICA (ADAPTADA PARA NOCLIP)
+-- BUCLE 1: VELOCIDAD DINÁMICA (CON ADAPTACIÓN PARA NOCLIP)
 task.spawn(function()
     while true do
         task.wait(0.1)
         local character = LocalPlayer.Character
         local humanoid = character and character:FindFirstChildOfClass("Humanoid")
         if humanoid then
-            -- Si noclip está activo, forzamos velocidad 7. Si no, se queda en 31.
             local velocidadObjetivo = NoclipActivo and VELOCIDAD_NOCLIP or VELOCIDAD_NORMAL
             if humanoid.WalkSpeed ~= velocidadObjetivo then
                 humanoid.WalkSpeed = velocidadObjetivo
@@ -236,4 +235,3 @@ RunService.Stepped:Connect(function()
         end
     end
 end)
-
