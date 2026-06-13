@@ -1,0 +1,239 @@
+-- SERVICIOS
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+-- CONFIGURACIÓN DEL HUB
+local COOLDOWN = 0.12     
+local MAX_DISTANCIA = 14  
+local MULTI_HIT = 2       
+local VELOCIDAD_NORMAL = 31      
+local VELOCIDAD_NOCLIP = 7  -- Velocidad optimizada para atravesar paredes
+
+local AuraActiva = false
+local EspActivo = false
+local NoclipActivo = false
+
+-- INTERFAZ NICK HUB (Diseño Base Original Ampliado)
+local ScreenGui = Instance.new("ScreenGui")
+local FrameMenu = Instance.new("Frame")
+local UIListLayout = Instance.new("UIListLayout")
+local TitleLabel = Instance.new("TextLabel")
+
+local BotonAura = Instance.new("TextButton")
+local BotonEsp = Instance.new("TextButton")
+local BotonNoclip = Instance.new("TextButton") -- Nuevo botón
+
+ScreenGui.Name = "NickHubEstable"
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+ScreenGui.ResetOnSpawn = false
+
+FrameMenu.Name = "MainMenu"
+FrameMenu.Parent = ScreenGui
+FrameMenu.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+FrameMenu.BackgroundTransparency = 0.2
+FrameMenu.Position = UDim2.new(0.05, 0, 0.2, 0)
+FrameMenu.Size = UDim2.new(0, 130, 0, 180) -- Ajustado el tamaño para el nuevo botón
+FrameMenu.Active = true
+FrameMenu.Draggable = true
+
+local cornerFrame = Instance.new("UICorner")
+cornerFrame.CornerRadius = UDim.new(0, 10)
+cornerFrame.Parent = FrameMenu
+
+UIListLayout.Parent = FrameMenu
+UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+UIListLayout.Padding = UDim.new(0, 8)
+
+TitleLabel.Parent = FrameMenu
+TitleLabel.Size = UDim2.new(1, 0, 0, 30)
+TitleLabel.BackgroundTransparency = 1
+TitleLabel.Text = "NICK HUB"
+TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleLabel.Font = Enum.Font.SourceSansBold
+TitleLabel.TextSize = 14
+TitleLabel.LayoutOrder = 0
+
+local function estilizarBoton(btn, texto, orden)
+    btn.Parent = FrameMenu
+    btn.Size = UDim2.new(0, 110, 0, 35)
+    btn.Text = texto
+    btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextColor3 = Color3.fromRGB(0, 0, 0)
+    btn.Font = Enum.Font.SourceSansBold
+    btn.TextSize = 14
+    btn.LayoutOrder = orden
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 6)
+    corner.Parent = btn
+end
+
+estilizarBoton(BotonAura, "AURA: OFF", 1)
+estilizarBoton(BotonEsp, "ITEMS: OFF", 2)
+estilizarBoton(BotonNoclip, "NOCLIP: OFF", 3)
+
+-- CONTROLES DE BOTONES
+BotonAura.MouseButton1Click:Connect(function()
+    AuraActiva = not AuraActiva
+    BotonAura.BackgroundColor3 = AuraActiva and Color3.fromRGB(0, 0, 0) or Color3.fromRGB(255, 255, 255)
+    BotonAura.TextColor3 = AuraActiva and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(0, 0, 0)
+    BotonAura.Text = AuraActiva and "AURA: ON" or "AURA: OFF"
+end)
+
+BotonEsp.MouseButton1Click:Connect(function()
+    EspActivo = not EspActivo
+    BotonEsp.BackgroundColor3 = EspActivo and Color3.fromRGB(0, 0, 0) or Color3.fromRGB(255, 255, 255)
+    BotonEsp.TextColor3 = EspActivo and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(0, 0, 0)
+    BotonEsp.Text = EspActivo and "ITEMS: ON" or "ITEMS: OFF"
+end)
+
+BotonNoclip.MouseButton1Click:Connect(function()
+    NoclipActivo = not NoclipActivo
+    BotonNoclip.BackgroundColor3 = NoclipActivo and Color3.fromRGB(0, 0, 0) or Color3.fromRGB(255, 255, 255)
+    BotonNoclip.TextColor3 = NoclipActivo and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(0, 0, 0)
+    BotonNoclip.Text = NoclipActivo and "NOCLIP: ON" or "NOCLIP: OFF"
+end)
+
+-- SISTEMA VISUAL ESP
+local function aplicarEspAObjeto(modelo)
+    if not modelo:FindFirstChild("EspEfecto") then
+        local highlight = Instance.new("Highlight")
+        highlight.Name = "EspEfecto"
+        highlight.FillColor = Color3.fromRGB(255, 255, 255)
+        highlight.FillTransparency = 0.6
+        highlight.OutlineColor = Color3.fromRGB(0, 0, 0)
+        highlight.OutlineTransparency = 0
+        highlight.Adornee = modelo
+        highlight.Parent = modelo
+
+        local billboard = Instance.new("BillboardGui")
+        billboard.Name = "EspTexto"
+        billboard.Size = UDim2.new(0, 100, 0, 30)
+        billboard.AlwaysOnTop = true
+        billboard.Adornee = modelo
+        billboard.ExtentsOffset = Vector3.new(0, 2, 0)
+
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(1, 0, 1, 0)
+        label.BackgroundTransparency = 1
+        label.TextColor3 = Color3.fromRGB(255, 255, 255)
+        label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+        label.TextStrokeTransparency = 0
+        label.Font = Enum.Font.SourceSansBold
+        label.TextSize = 13
+        label.Text = modelo.Name:upper()
+
+        label.Parent = billboard
+        billboard.Parent = modelo
+    end
+end
+
+local function limpiarEsp()
+    local carpetaDropped = Workspace:FindFirstChild("DroppedItems")
+    if carpetaDropped then
+        for _, item in ipairs(carpetaDropped:GetChildren()) do
+            if item:FindFirstChild("EspEfecto") then item.EspEfecto:Destroy() end
+            if item:FindFirstChild("EspTexto") then item.EspTexto:Destroy() end
+        end
+    end
+end
+
+-- BUCLE 1: VELOCIDAD DINÁMICA (ADAPTADA PARA NOCLIP)
+task.spawn(function()
+    while true do
+        task.wait(0.1)
+        local character = LocalPlayer.Character
+        local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            -- Si noclip está activo, forzamos velocidad 7. Si no, se queda en 31.
+            local velocidadObjetivo = NoclipActivo and VELOCIDAD_NOCLIP or VELOCIDAD_NORMAL
+            if humanoid.WalkSpeed ~= velocidadObjetivo then
+                humanoid.WalkSpeed = velocidadObjetivo
+            end
+        end
+    end
+end)
+
+-- BUCLE 2: KILL AURA
+task.spawn(function()
+    while true do
+        task.wait(COOLDOWN)
+        if AuraActiva then
+            local character = LocalPlayer.Character
+            local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+            if rootPart then
+                local objetivos = {}
+                local carpetaCaracteres = Workspace:FindFirstChild("Characters")
+                if carpetaCaracteres then
+                    for _, mob in ipairs(carpetaCaracteres:GetChildren()) do
+                        if mob ~= character and mob:FindFirstChild("HumanoidRootPart") then
+                            local humanoid = mob:FindFirstChildOfClass("Humanoid")
+                            if (humanoid and humanoid.Health > 0) or (not humanoid) then
+                                local distancia = (rootPart.Position - mob.HumanoidRootPart.Position).Magnitude
+                                if distancia <= MAX_DISTANCIA then
+                                    table.insert(objetivos, mob)
+                                end
+                            end
+                        end
+                    end
+                end
+                
+                if #objetivos > 0 then
+                    local swingRemote, hitTargetsRemote
+                    for _, obj in ipairs(character:GetChildren()) do
+                        if obj:IsA("Tool") or (obj:IsA("Model") and obj:FindFirstChild("HitTargets")) then
+                            if obj:FindFirstChild("Swing") then swingRemote = obj.Swing end
+                            if obj:FindFirstChild("HitTargets") then hitTargetsRemote = obj.HitTargets end
+                        end
+                    end
+                    
+                    if hitTargetsRemote and hitTargetsRemote:IsA("RemoteEvent") then
+                        if swingRemote and swingRemote:IsA("RemoteEvent") then
+                            task.spawn(function() swingRemote:FireServer() end)
+                        end
+                        for i = 1, MULTI_HIT do
+                            hitTargetsRemote:FireServer(objetivos)
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- BUCLE 3: ESP DE OBJETOS
+task.spawn(function()
+    while true do
+        task.wait(0.5)
+        if EspActivo then
+            local carpetaDropped = Workspace:FindFirstChild("DroppedItems")
+            if carpetaDropped then
+                for _, item in ipairs(carpetaDropped:GetChildren()) do
+                    if item.Name == "Fuel" or item.Name == "Battery" or item.Name == "Scrap" then
+                        aplicarEspAObjeto(item)
+                    end
+                end
+            end
+        else
+            limpiarEsp()
+        end
+    end
+end)
+
+-- BUCLE 4: MOTOR DE NOCLIP (EJECUCIÓN POR FRAME)
+RunService.Stepped:Connect(function()
+    if NoclipActivo then
+        local character = LocalPlayer.Character
+        if character then
+            for _, v in ipairs(character:GetDescendants()) do
+                if v:IsA("BasePart") and v.CanCollide == true then
+                    v.CanCollide = false
+                end
+            end
+        end
+    end
+end)
+
