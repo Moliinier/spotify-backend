@@ -1,7 +1,8 @@
--- SERVICIOS
+ -- SERVICIOS
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
 -- CONFIGURACIÓN DEL HUB
@@ -9,13 +10,13 @@ local COOLDOWN = 0.12
 local MAX_DISTANCIA = 14  
 local MULTI_HIT = 2       
 local VELOCIDAD_NORMAL = 31      
-local VELOCIDAD_NOCLIP = 9  -- Actualizado de 7 a 9 para mayor fluidez
+local VELOCIDAD_NOCLIP = 9
 
 local AuraActiva = false
 local EspActivo = false
 local NoclipActivo = false
 
--- INTERFAZ NICK HUB (Diseño Base Original Ampliado)
+-- INTERFAZ NICK HUB (Diseño Base Compacto Pequeño)
 local ScreenGui = Instance.new("ScreenGui")
 local FrameMenu = Instance.new("Frame")
 local UIListLayout = Instance.new("UIListLayout")
@@ -34,7 +35,7 @@ FrameMenu.Parent = ScreenGui
 FrameMenu.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
 FrameMenu.BackgroundTransparency = 0.2
 FrameMenu.Position = UDim2.new(0.05, 0, 0.2, 0)
-FrameMenu.Size = UDim2.new(0, 130, 0, 180)
+FrameMenu.Size = UDim2.new(0, 115, 0, 155)
 FrameMenu.Active = true
 FrameMenu.Draggable = true
 
@@ -45,25 +46,25 @@ cornerFrame.Parent = FrameMenu
 UIListLayout.Parent = FrameMenu
 UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
 UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-UIListLayout.Padding = UDim.new(0, 8)
+UIListLayout.Padding = UDim.new(0, 6)
 
 TitleLabel.Parent = FrameMenu
-TitleLabel.Size = UDim2.new(1, 0, 0, 30)
+TitleLabel.Size = UDim2.new(1, 0, 0, 28)
 TitleLabel.BackgroundTransparency = 1
 TitleLabel.Text = "NICK HUB"
 TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
 TitleLabel.Font = Enum.Font.SourceSansBold
-TitleLabel.TextSize = 14
+TitleLabel.TextSize = 13
 TitleLabel.LayoutOrder = 0
 
 local function estilizarBoton(btn, texto, orden)
     btn.Parent = FrameMenu
-    btn.Size = UDim2.new(0, 110, 0, 35)
+    btn.Size = UDim2.new(0, 100, 0, 32)
     btn.Text = texto
     btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     btn.TextColor3 = Color3.fromRGB(0, 0, 0)
     btn.Font = Enum.Font.SourceSansBold
-    btn.TextSize = 14
+    btn.TextSize = 12
     btn.LayoutOrder = orden
     
     local corner = Instance.new("UICorner")
@@ -97,21 +98,36 @@ BotonNoclip.MouseButton1Click:Connect(function()
     BotonNoclip.Text = NoclipActivo and "NOCLIP: ON" or "NOCLIP: OFF"
 end)
 
--- SISTEMA VISUAL ESP
-local function aplicarEspAObjeto(modelo)
-    if not modelo:FindFirstChild("EspEfecto") then
-        local highlight = Instance.new("Highlight")
+-- SISTEMA VISUAL ESP DE ESTADO DINÁMICO
+local function aplicarEspAObjeto(modelo, texto, color)
+    local highlight = modelo:FindFirstChild("EspEfecto")
+    local billboard = modelo:FindFirstChild("EspTexto")
+    
+    -- Si ya existen, actualizamos dinámicamente sus textos y colores por si cambió de estado (abierta)
+    if highlight and billboard then
+        highlight.FillColor = color
+        local label = billboard:FindFirstChildOfClass("TextLabel")
+        if label and label.Text ~= texto then
+            label.Text = texto
+            label.TextColor3 = color
+        end
+        return
+    end
+
+    -- Si no existen, los creamos desde cero
+    if not highlight then
+        highlight = Instance.new("Highlight")
         highlight.Name = "EspEfecto"
-        highlight.FillColor = Color3.fromRGB(255, 255, 255)
+        highlight.FillColor = color
         highlight.FillTransparency = 0.6
         highlight.OutlineColor = Color3.fromRGB(0, 0, 0)
         highlight.OutlineTransparency = 0
         highlight.Adornee = modelo
         highlight.Parent = modelo
 
-        local billboard = Instance.new("BillboardGui")
+        billboard = Instance.new("BillboardGui")
         billboard.Name = "EspTexto"
-        billboard.Size = UDim2.new(0, 100, 0, 30)
+        billboard.Size = UDim2.new(0, 140, 0, 30)
         billboard.AlwaysOnTop = true
         billboard.Adornee = modelo
         billboard.ExtentsOffset = Vector3.new(0, 2, 0)
@@ -119,12 +135,12 @@ local function aplicarEspAObjeto(modelo)
         local label = Instance.new("TextLabel")
         label.Size = UDim2.new(1, 0, 1, 0)
         label.BackgroundTransparency = 1
-        label.TextColor3 = Color3.fromRGB(255, 255, 255)
+        label.TextColor3 = color
         label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
         label.TextStrokeTransparency = 0
         label.Font = Enum.Font.SourceSansBold
         label.TextSize = 13
-        label.Text = modelo.Name:upper()
+        label.Text = texto
 
         label.Parent = billboard
         billboard.Parent = modelo
@@ -132,16 +148,14 @@ local function aplicarEspAObjeto(modelo)
 end
 
 local function limpiarEsp()
-    local carpetaDropped = Workspace:FindFirstChild("DroppedItems")
-    if carpetaDropped then
-        for _, item in ipairs(carpetaDropped:GetChildren()) do
-            if item:FindFirstChild("EspEfecto") then item.EspEfecto:Destroy() end
-            if item:FindFirstChild("EspTexto") then item.EspTexto:Destroy() end
+    for _, item in ipairs(Workspace:GetDescendants()) do
+        if item.Name == "EspEfecto" or item.Name == "EspTexto" then
+            item:Destroy()
         end
     end
 end
 
--- BUCLE 1: VELOCIDAD DINÁMICA (CON ADAPTACIÓN PARA NOCLIP)
+-- BUCLE 1: VELOCIDAD DINÁMICA
 task.spawn(function()
     while true do
         task.wait(0.1)
@@ -203,16 +217,47 @@ task.spawn(function()
     end
 end)
 
--- BUCLE 3: ESP DE OBJETOS
+-- BUCLE 3: ESP CON DETECCIÓN INTELIGENTE DE CAJAS ABIERTAS
 task.spawn(function()
     while true do
         task.wait(0.5)
         if EspActivo then
+            -- Escaneo de Objetos Tirados (DroppedItems)
             local carpetaDropped = Workspace:FindFirstChild("DroppedItems")
             if carpetaDropped then
                 for _, item in ipairs(carpetaDropped:GetChildren()) do
-                    if item.Name == "Fuel" or item.Name == "Battery" or item.Name == "Scrap" then
-                        aplicarEspAObjeto(item)
+                    local n = item.Name:upper()
+                    if n ~= "SCRAP" and not n:find("SCRAP") then
+                        if n == "BATTERY" then
+                            aplicarEspAObjeto(item, "🔋 BATTERY", Color3.fromRGB(50, 255, 50))
+                        elseif n == "BATTERY PACK" or n:find("BATTERY") then
+                            aplicarEspAObjeto(item, "🔋 BATTERY (x3)", Color3.fromRGB(0, 200, 100))
+                        elseif n == "FUEL" or n == "REFINED FUEL" or n:find("FUEL") then
+                            aplicarEspAObjeto(item, "⛽ FUEL", Color3.fromRGB(255, 50, 50))
+                        end
+                    end
+                end
+            end
+
+            -- Escaneo Dinámico de Cajas en la ruta de la Auditoría
+            local carpetaCrates = Workspace:FindFirstChild("Map") and Workspace.Map:FindFirstChild("Crates")
+            if carpetaCrates then
+                for _, caja in ipairs(carpetaCrates:GetChildren()) do
+                    if caja:IsA("Model") or caja:IsA("BasePart") then
+                        
+                        -- Buscamos si la caja conserva su Hitbox y su prompt interactivo activo
+                        local hitbox = caja:FindFirstChild("Hitbox") or caja
+                        local prompt = hitbox:FindFirstChildOfClass("ProximityPrompt") or caja:FindFirstChildOfClass("ProximityPrompt") or caja:FindFirstChild("Hitbox") and caja.Hitbox:FindFirstChildOfClass("ProximityPrompt")
+                        
+                        -- Lógica de Estado: Si no tiene prompt, o el prompt está deshabilitado o dice que está vacío/abierto:
+                        if not prompt or prompt.Enabled == false or prompt.ActionText:upper():find("VACIO") or prompt.ObjectText:upper():find("VACIO") then
+                            -- Cambia a GRIS OSCURO indicando que ya la abriste
+                            aplicarEspAObjeto(caja, "❌ CAJA ABIERTA", Color3.fromRGB(70, 70, 70))
+                        else
+                            -- Sigue NARANJA si está lista para lootear
+                            aplicarEspAObjeto(caja, "📦 CAJA DE LOOT", Color3.fromRGB(255, 140, 0))
+                        end
+                        
                     end
                 end
             end
@@ -222,7 +267,7 @@ task.spawn(function()
     end
 end)
 
--- BUCLE 4: MOTOR DE NOCLIP (EJECUCIÓN POR FRAME)
+-- BUCLE 4: MOTOR DE NOCLIP
 RunService.Stepped:Connect(function()
     if NoclipActivo then
         local character = LocalPlayer.Character
@@ -233,5 +278,14 @@ RunService.Stepped:Connect(function()
                 end
             end
         end
+    end
+end)
+
+-- INFINITE JUMP
+UserInputService.JumpRequest:Connect(function()
+    local character = LocalPlayer.Character
+    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+    if humanoid then 
+        humanoid:ChangeState(Enum.HumanoidStateType.Jumping) 
     end
 end)
