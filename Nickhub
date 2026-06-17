@@ -1,216 +1,476 @@
--- SERVICIOS
-local Players = game:GetService("Players")
-local Workspace = game:GetService("Workspace")
-local RunService = game:GetService("RunService")
+-- ============================================================
+--  NICK HUB V2 — Rebuilt (CON AUTO-RELOAD)
+-- ============================================================
+
+-- FUNCIÓN PARA MANTENER EL SCRIPT ACTIVO EN TELEPORTES
+if queue_on_teleport then
+    queue_on_teleport([[
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/tu_usuario/tu_repo/main/nick_hub_v2.lua", true))()
+    ]])
+end
+
+local Players          = game:GetService("Players")
+local Workspace        = game:GetService("Workspace")
+local RunService       = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local LocalPlayer = Players.LocalPlayer
+local TweenService     = game:GetService("TweenService")
+local HttpService      = game:GetService("HttpService")
+local LocalPlayer      = Players.LocalPlayer
 
--- CONFIGURACIÓN DEL HUB
-local COOLDOWN = 0.12     
-local MAX_DISTANCIA = 14  
-local MULTI_HIT = 2       
-local VELOCIDAD_NORMAL = 31      
-local VELOCIDAD_NOCLIP = 11
+local COOLDOWN       = 0.12
+local MAX_DISTANCIA  = 14
+local MULTI_HIT      = 2
+local VEL_NORMAL     = 31
+local VEL_NOCLIP     = 9
+local CONFIG_FILE    = "NickHubConfig.json"
 
-local AuraActiva = false
-local EspActivo = false
-local NoclipActivo = false
+local State = {
+    Aura        = false,
+    Noclip      = false,
+    Battery     = true,
+    BatteryPack = true,
+    Fuel        = true,
+    Bandage     = true,
+    Medkit      = true,
+    Crates      = true,
+}
 
--- INTERFAZ NICK HUB (Diseño Base Compacto Pequeño)
-local ScreenGui = Instance.new("ScreenGui")
-local FrameMenu = Instance.new("Frame")
-local UIListLayout = Instance.new("UIListLayout")
-local TitleLabel = Instance.new("TextLabel")
+local ICONS = {
+    Battery     = "rbxassetid://135230930676521",
+    BatteryPack = "rbxassetid://107441855639793",
+    Fuel        = "rbxassetid://99273385003079",
+    Bandage     = "rbxassetid://78301867873152",
+    Medkit      = "rbxassetid://100269763334928",
+    Crate       = "rbxassetid://107471270409548",
+}
 
-local BotonAura = Instance.new("TextButton")
-local BotonEsp = Instance.new("TextButton")
-local BotonNoclip = Instance.new("TextButton")
-
-ScreenGui.Name = "NickHubEstable"
-ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-ScreenGui.ResetOnSpawn = false
-
-FrameMenu.Name = "MainMenu"
-FrameMenu.Parent = ScreenGui
-FrameMenu.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-FrameMenu.BackgroundTransparency = 0.2
-FrameMenu.Position = UDim2.new(0.05, 0, 0.2, 0)
-FrameMenu.Size = UDim2.new(0, 115, 0, 155)
-FrameMenu.Active = true
-FrameMenu.Draggable = true
-
-local cornerFrame = Instance.new("UICorner")
-cornerFrame.CornerRadius = UDim.new(0, 10)
-cornerFrame.Parent = FrameMenu
-
-UIListLayout.Parent = FrameMenu
-UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
-UIListLayout.Padding = UDim.new(0, 6)
-
-TitleLabel.Parent = FrameMenu
-TitleLabel.Size = UDim2.new(1, 0, 0, 28)
-TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "NICK HUB"
-TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-TitleLabel.Font = Enum.Font.SourceSansBold
-TitleLabel.TextSize = 13
-TitleLabel.LayoutOrder = 0
-
-local function estilizarBoton(btn, texto, orden)
-    btn.Parent = FrameMenu
-    btn.Size = UDim2.new(0, 100, 0, 32)
-    btn.Text = texto
-    btn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-    btn.TextColor3 = Color3.fromRGB(0, 0, 0)
-    btn.Font = Enum.Font.SourceSansBold
-    btn.TextSize = 12
-    btn.LayoutOrder = orden
-    
-    local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 6)
-    corner.Parent = btn
+local function saveConfig()
+    if not writefile then return end
+    pcall(function() writefile(CONFIG_FILE, HttpService:JSONEncode(State)) end)
 end
 
-estilizarBoton(BotonAura, "AURA: OFF", 1)
-estilizarBoton(BotonEsp, "ITEMS: OFF", 2)
-estilizarBoton(BotonNoclip, "NOCLIP: OFF", 3)
-
--- CONTROLES DE BOTONES
-BotonAura.MouseButton1Click:Connect(function()
-    AuraActiva = not AuraActiva
-    BotonAura.BackgroundColor3 = AuraActiva and Color3.fromRGB(0, 0, 0) or Color3.fromRGB(255, 255, 255)
-    BotonAura.TextColor3 = AuraActiva and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(0, 0, 0)
-    BotonAura.Text = AuraActiva and "AURA: ON" or "AURA: OFF"
-end)
-
-BotonEsp.MouseButton1Click:Connect(function()
-    EspActivo = not EspActivo
-    BotonEsp.BackgroundColor3 = EspActivo and Color3.fromRGB(0, 0, 0) or Color3.fromRGB(255, 255, 255)
-    BotonEsp.TextColor3 = EspActivo and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(0, 0, 0)
-    BotonEsp.Text = EspActivo and "ITEMS: ON" or "ITEMS: OFF"
-end)
-
-BotonNoclip.MouseButton1Click:Connect(function()
-    NoclipActivo = not NoclipActivo
-    BotonNoclip.BackgroundColor3 = NoclipActivo and Color3.fromRGB(0, 0, 0) or Color3.fromRGB(255, 255, 255)
-    BotonNoclip.TextColor3 = NoclipActivo and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(0, 0, 0)
-    BotonNoclip.Text = NoclipActivo and "NOCLIP: ON" or "NOCLIP: OFF"
-end)
-
--- SISTEMA VISUAL ESP MEJORADO
-local function aplicarEspAObjeto(modelo, texto, color)
-    local highlight = modelo:FindFirstChild("EspEfecto")
-    local billboard = modelo:FindFirstChild("EspTexto")
-    
-    if highlight and billboard then
-        highlight.FillColor = color
-        local label = billboard:FindFirstChildOfClass("TextLabel")
-        if label and label.Text ~= texto then
-            label.Text = texto
-            label.TextColor3 = color
+local function loadConfig()
+    if not readfile then return end
+    pcall(function()
+        local raw = readfile(CONFIG_FILE)
+        if not raw or #raw < 2 then return end
+        local data = HttpService:JSONDecode(raw)
+        for k in pairs(State) do
+            if data[k] ~= nil then State[k] = data[k] end
         end
-        return
-    end
-
-    if not highlight then
-        highlight = Instance.new("Highlight")
-        highlight.Name = "EspEfecto"
-        highlight.FillColor = color
-        highlight.FillTransparency = 0.5
-        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-        highlight.OutlineTransparency = 0.3
-        highlight.Adornee = modelo
-        highlight.Parent = modelo
-
-        billboard = Instance.new("BillboardGui")
-        billboard.Name = "EspTexto"
-        billboard.Size = UDim2.new(0, 150, 0, 35)
-        billboard.AlwaysOnTop = true
-        billboard.Adornee = modelo
-        billboard.ExtentsOffset = Vector3.new(0, 2.5, 0)
-
-        local label = Instance.new("TextLabel")
-        label.Size = UDim2.new(1, 0, 1, 0)
-        label.BackgroundTransparency = 1
-        label.TextColor3 = color
-        label.Font = Enum.Font.GothamBlack
-        label.TextSize = 14
-        label.Text = texto
-        
-        local stroke = Instance.new("UIStroke")
-        stroke.Color = Color3.fromRGB(15, 15, 15)
-        stroke.Thickness = 1.5
-        stroke.Parent = label
-
-        label.Parent = billboard
-        billboard.Parent = modelo
-    end
+    end)
 end
 
-local function limpiarEsp()
-    for _, item in ipairs(Workspace:GetDescendants()) do
-        if item.Name == "EspEfecto" or item.Name == "EspTexto" then
-            item:Destroy()
+loadConfig()
+
+local C = {
+    bg     = Color3.fromRGB(12, 12, 18),
+    bar    = Color3.fromRGB(18, 18, 26),
+    card   = Color3.fromRGB(22, 22, 32),
+    line   = Color3.fromRGB(32, 32, 46),
+    on     = Color3.fromRGB(50, 190, 75),
+    off    = Color3.fromRGB(50, 50, 66),
+    accent = Color3.fromRGB(80, 110, 200),
+    wht    = Color3.fromRGB(215, 215, 225),
+    dim    = Color3.fromRGB(90, 90, 108),
+    red    = Color3.fromRGB(190, 55, 55),
+}
+
+local function mk(cls, props, parent)
+    local o = Instance.new(cls)
+    for k, v in pairs(props) do o[k] = v end
+    if parent then o.Parent = parent end
+    return o
+end
+
+local function corner(p, r)
+    mk("UICorner", {CornerRadius=UDim.new(0, r or 7)}, p)
+end
+
+local function stroke(p, col, th)
+    mk("UIStroke", {Color=col, Thickness=th or 1, Transparency=0.3}, p)
+end
+
+local function listLayout(p, pad)
+    mk("UIListLayout", {
+        Padding=UDim.new(0, pad or 0),
+        SortOrder=Enum.SortOrder.LayoutOrder,
+        HorizontalAlignment=Enum.HorizontalAlignment.Center,
+    }, p)
+end
+
+local function padding(p, t, b, l, r)
+    mk("UIPadding", {
+        PaddingTop=UDim.new(0,t or 0), PaddingBottom=UDim.new(0,b or 0),
+        PaddingLeft=UDim.new(0,l or 0), PaddingRight=UDim.new(0,r or 0),
+    }, p)
+end
+
+pcall(function()
+    if LocalPlayer.PlayerGui:FindFirstChild("NickHubV2") then
+        LocalPlayer.PlayerGui.NickHubV2:Destroy()
+    end
+end)
+
+local ScreenGui = mk("ScreenGui", {
+    Name="NickHubV2", ResetOnSpawn=false, DisplayOrder=30,
+    IgnoreGuiInset=true,
+}, LocalPlayer:WaitForChild("PlayerGui"))
+
+-- BOTÓN FLOTANTE REDONDO CON "N"
+local FloatBtn = mk("TextButton", {
+    Size=UDim2.new(0,50,0,50),
+    Position=UDim2.new(0,10,0.5,-25),
+    BackgroundColor3=C.bar,
+    TextColor3=C.wht,
+    Font=Enum.Font.GothamBold,
+    TextSize=28,
+    Text="N",
+    BorderSizePixel=0,
+    ZIndex=10,
+    AutoButtonColor=false,
+}, ScreenGui)
+corner(FloatBtn, 25)
+stroke(FloatBtn, C.dim, 1)
+
+-- PANEL MÁS GRANDE
+local Panel = mk("Frame", {
+    Size=UDim2.new(0,180,0,0),
+    Position=UDim2.new(0,64,0.5,-25),
+    BackgroundColor3=C.bg,
+    BackgroundTransparency=0.3,
+    BorderSizePixel=0,
+    ClipsDescendants=true,
+    ZIndex=5,
+    Visible=false,
+}, ScreenGui)
+corner(Panel, 8)
+stroke(Panel, C.line, 1)
+
+local PanelInner = mk("Frame", {
+    Size=UDim2.new(1,0,0,0),
+    AutomaticSize=Enum.AutomaticSize.Y,
+    BackgroundTransparency=1,
+    ZIndex=5,
+}, Panel)
+listLayout(PanelInner, 0)
+
+local TopBar = mk("Frame", {
+    Size=UDim2.new(1,0,0,28),
+    BackgroundColor3=C.bar,
+    BorderSizePixel=0,
+    LayoutOrder=0,
+    ZIndex=5,
+}, PanelInner)
+corner(TopBar, 8)
+
+mk("Frame",{Size=UDim2.new(1,0,0,8),Position=UDim2.new(0,0,1,-8),
+    BackgroundColor3=C.bar,BorderSizePixel=0,ZIndex=5},TopBar)
+
+mk("TextLabel",{
+    Size=UDim2.new(1,0,1,0),
+    BackgroundTransparency=1,
+    Text="NICK HUB",
+    TextColor3=C.wht,
+    Font=Enum.Font.GothamBold,
+    TextSize=12,
+    ZIndex=5,
+},TopBar)
+
+local function divider(order)
+    mk("Frame",{Size=UDim2.new(1,0,0,1),BackgroundColor3=C.line,
+        BorderSizePixel=0,LayoutOrder=order,ZIndex=5},PanelInner)
+end
+
+local function makeToggle(label, key, order)
+    local row = mk("Frame",{
+        Size=UDim2.new(1,0,0,30),
+        BackgroundTransparency=1,
+        LayoutOrder=order, ZIndex=5,
+    }, PanelInner)
+    padding(row, 0,0,10,10)
+
+    mk("TextLabel",{
+        Size=UDim2.new(1,-40,1,0),
+        BackgroundTransparency=1,
+        Text=label,
+        TextColor3=C.wht,
+        Font=Enum.Font.GothamBold,
+        TextSize=11,
+        TextXAlignment=Enum.TextXAlignment.Left,
+        ZIndex=5,
+    }, row)
+
+    local pill = mk("Frame",{
+        Size=UDim2.new(0,30,0,14),
+        Position=UDim2.new(1,-30,0.5,-7),
+        BackgroundColor3=State[key] and C.on or C.off,
+        BorderSizePixel=0, ZIndex=5,
+    }, row)
+    corner(pill, 7)
+
+    local knob = mk("Frame",{
+        Size=UDim2.new(0,10,0,10),
+        Position=State[key] and UDim2.new(1,-12,0.5,-5) or UDim2.new(0,2,0.5,-5),
+        BackgroundColor3=C.wht,
+        BorderSizePixel=0, ZIndex=6,
+    }, pill)
+    corner(knob, 5)
+
+    local btn = mk("TextButton",{
+        Size=UDim2.new(1,0,1,0),
+        BackgroundTransparency=1, Text="", ZIndex=7,
+    }, row)
+
+    btn.Activated:Connect(function()
+        State[key] = not State[key]
+        TweenService:Create(pill,TweenInfo.new(0.12),{
+            BackgroundColor3=State[key] and C.on or C.off
+        }):Play()
+        TweenService:Create(knob,TweenInfo.new(0.12),{
+            Position=State[key] and UDim2.new(1,-12,0.5,-5) or UDim2.new(0,2,0.5,-5)
+        }):Play()
+        saveConfig()
+    end)
+end
+
+makeToggle("Aura",   "Aura",   1)
+makeToggle("Noclip", "Noclip", 2)
+divider(3)
+
+local espOpen = false
+local espArrow = nil
+
+local EspHeader = mk("TextButton",{
+    Size=UDim2.new(1,0,0,25),
+    BackgroundTransparency=1,
+    Text="", BorderSizePixel=0,
+    LayoutOrder=4, ZIndex=6,
+}, PanelInner)
+
+local headerLayout = mk("Frame",{
+    Size=UDim2.new(1,0,1,0),
+    BackgroundTransparency=1, ZIndex=6,
+}, EspHeader)
+padding(headerLayout,0,0,10,10)
+
+mk("TextLabel",{
+    Size=UDim2.new(1,-20,1,0),
+    BackgroundTransparency=1,
+    Text="ESP",
+    TextColor3=C.dim,
+    Font=Enum.Font.GothamBold,
+    TextSize=11,
+    TextXAlignment=Enum.TextXAlignment.Left,
+    ZIndex=6,
+}, headerLayout)
+
+espArrow = mk("TextLabel",{
+    Size=UDim2.new(0,14,1,0),
+    Position=UDim2.new(1,-14,0,0),
+    BackgroundTransparency=1,
+    Text="▸",
+    TextColor3=C.dim,
+    Font=Enum.Font.GothamBold,
+    TextSize=11, ZIndex=6,
+}, headerLayout)
+
+local EspContainer = mk("Frame",{
+    Size=UDim2.new(1,0,0,0),
+    AutomaticSize=Enum.AutomaticSize.Y,
+    BackgroundTransparency=1,
+    ClipsDescendants=true,
+    LayoutOrder=5, ZIndex=5,
+    Visible=false,
+}, PanelInner)
+listLayout(EspContainer, 0)
+
+local function makeEspRow(label, icon, key, order)
+    local row = mk("Frame",{
+        Size=UDim2.new(1,0,0,27),
+        BackgroundTransparency=1,
+        LayoutOrder=order, ZIndex=5,
+    }, EspContainer)
+    padding(row,0,0,10,10)
+
+    mk("ImageLabel",{
+        Size=UDim2.new(0,15,0,15),
+        Position=UDim2.new(0,0,0.5,-7.5),
+        BackgroundTransparency=1,
+        Image=icon, ZIndex=5,
+    }, row)
+
+    mk("TextLabel",{
+        Size=UDim2.new(1,-40,1,0),
+        Position=UDim2.new(0,20,0,0),
+        BackgroundTransparency=1,
+        Text=label,
+        TextColor3=C.dim,
+        Font=Enum.Font.Gotham,
+        TextSize=10,
+        TextXAlignment=Enum.TextXAlignment.Left,
+        ZIndex=5,
+    }, row)
+
+    local pill = mk("Frame",{
+        Size=UDim2.new(0,26,0,12),
+        Position=UDim2.new(1,-26,0.5,-6),
+        BackgroundColor3=State[key] and C.on or C.off,
+        BorderSizePixel=0, ZIndex=5,
+    }, row)
+    corner(pill,6)
+
+    local knob = mk("Frame",{
+        Size=UDim2.new(0,8,0,8),
+        Position=State[key] and UDim2.new(1,-10,0.5,-4) or UDim2.new(0,2,0.5,-4),
+        BackgroundColor3=C.wht,
+        BorderSizePixel=0, ZIndex=6,
+    }, pill)
+    corner(knob,4)
+
+    local btn = mk("TextButton",{
+        Size=UDim2.new(1,0,1,0),
+        BackgroundTransparency=1, Text="", ZIndex=7,
+    }, row)
+
+    btn.Activated:Connect(function()
+        State[key] = not State[key]
+        TweenService:Create(pill,TweenInfo.new(0.12),{
+            BackgroundColor3=State[key] and C.on or C.off
+        }):Play()
+        TweenService:Create(knob,TweenInfo.new(0.12),{
+            Position=State[key] and UDim2.new(1,-10,0.5,-4) or UDim2.new(0,2,0.5,-4)
+        }):Play()
+        saveConfig()
+    end)
+end
+
+makeEspRow("Battery",      ICONS.Battery,     "Battery",     1)
+makeEspRow("Battery Pack", ICONS.BatteryPack, "BatteryPack", 2)
+makeEspRow("Fuel",         ICONS.Fuel,        "Fuel",        3)
+makeEspRow("Bandage",      ICONS.Bandage,     "Bandage",     4)
+makeEspRow("Medkit",       ICONS.Medkit,      "Medkit",      5)
+makeEspRow("Crates",       ICONS.Crate,       "Crates",      6)
+
+mk("Frame",{Size=UDim2.new(1,0,0,6),BackgroundTransparency=1,LayoutOrder=99},PanelInner)
+
+EspHeader.Activated:Connect(function()
+    espOpen = not espOpen
+    espArrow.Text = espOpen and "▾" or "▸"
+    espArrow.TextColor3 = espOpen and C.wht or C.dim
+    EspContainer.Visible = espOpen
+end)
+
+local menuOpen = false
+
+local function openPanel()
+    Panel.Visible = true
+    local targetH = PanelInner.AbsoluteSize.Y
+    if targetH < 10 then targetH = 100 end
+    Panel.Size = UDim2.new(0,180,0,0)
+    TweenService:Create(Panel,TweenInfo.new(0.18,Enum.EasingStyle.Quad,Enum.EasingDirection.Out),{
+        Size=UDim2.new(0,180,0,targetH)
+    }):Play()
+end
+
+local function closePanel()
+    TweenService:Create(Panel,TweenInfo.new(0.12,Enum.EasingStyle.Quad,Enum.EasingDirection.In),{
+        Size=UDim2.new(0,180,0,0)
+    }):Play()
+    task.delay(0.13, function() Panel.Visible = false end)
+end
+
+EspHeader.Activated:Connect(function()
+    if menuOpen then
+        task.wait()
+        local h = PanelInner.AbsoluteSize.Y
+        if h > 10 then
+            Panel.Size = UDim2.new(0,180,0,h)
         end
     end
-end
+end)
 
--- BUCLE 1: VELOCIDAD DINÁMICA
+FloatBtn.Activated:Connect(function()
+    menuOpen = not menuOpen
+    if menuOpen then openPanel() else closePanel() end
+end)
+
+local cam = workspace.CurrentCamera
+local drag = false
+local ds = Vector2.new()
+local bpos = Vector2.new()
+
+FloatBtn.InputBegan:Connect(function(i)
+    if i.UserInputType==Enum.UserInputType.MouseButton1 or
+       i.UserInputType==Enum.UserInputType.Touch then
+        drag=true
+        ds=Vector2.new(i.Position.X,i.Position.Y)
+        bpos=Vector2.new(FloatBtn.Position.X.Offset,FloatBtn.Position.Y.Offset)
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(i)
+    if not drag then return end
+    if i.UserInputType~=Enum.UserInputType.MouseMovement and
+       i.UserInputType~=Enum.UserInputType.Touch then return end
+    local d=Vector2.new(i.Position.X-ds.X,i.Position.Y-ds.Y)
+    local vp=cam.ViewportSize
+    local nx=math.clamp(bpos.X+d.X,0,vp.X-50)
+    local ny=math.clamp(bpos.Y+d.Y,0,vp.Y-50)
+    FloatBtn.Position=UDim2.new(0,nx,0,ny)
+    Panel.Position=UDim2.new(0,nx+64,0,ny)
+end)
+
+UserInputService.InputEnded:Connect(function(i)
+    if i.UserInputType==Enum.UserInputType.MouseButton1 or
+       i.UserInputType==Enum.UserInputType.Touch then drag=false end
+end)
+
 task.spawn(function()
     while true do
         task.wait(0.1)
-        local character = LocalPlayer.Character
-        local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            local velocidadObjetivo = NoclipActivo and VELOCIDAD_NOCLIP or VELOCIDAD_NORMAL
-            if humanoid.WalkSpeed ~= velocidadObjetivo then
-                humanoid.WalkSpeed = velocidadObjetivo
-            end
+        local char=LocalPlayer.Character
+        local hum=char and char:FindFirstChildOfClass("Humanoid")
+        if hum then
+            local t=State.Noclip and VEL_NOCLIP or VEL_NORMAL
+            if hum.WalkSpeed~=t then hum.WalkSpeed=t end
         end
     end
 end)
 
--- BUCLE 2: KILL AURA
 task.spawn(function()
     while true do
         task.wait(COOLDOWN)
-        if AuraActiva then
-            local character = LocalPlayer.Character
-            local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+        if State.Aura then
+            local character=LocalPlayer.Character
+            local rootPart=character and character:FindFirstChild("HumanoidRootPart")
             if rootPart then
-                local objetivos = {}
-                local carpetaCaracteres = Workspace:FindFirstChild("Characters")
-                if carpetaCaracteres then
-                    for _, mob in ipairs(carpetaCaracteres:GetChildren()) do
-                        if mob ~= character and mob:FindFirstChild("HumanoidRootPart") then
-                            local humanoid = mob:FindFirstChildOfClass("Humanoid")
-                            if (humanoid and humanoid.Health > 0) or (not humanoid) then
-                                local distancia = (rootPart.Position - mob.HumanoidRootPart.Position).Magnitude
-                                if distancia <= MAX_DISTANCIA then
-                                    table.insert(objetivos, mob)
-                                end
+                local objetivos={}
+                local carpeta=Workspace:FindFirstChild("Characters")
+                if carpeta then
+                    for _,mob in ipairs(carpeta:GetChildren()) do
+                        if mob~=character and mob:FindFirstChild("HumanoidRootPart") then
+                            local hum=mob:FindFirstChildOfClass("Humanoid")
+                            if (hum and hum.Health>0) or not hum then
+                                local dist=(rootPart.Position-mob.HumanoidRootPart.Position).Magnitude
+                                if dist<=MAX_DISTANCIA then table.insert(objetivos,mob) end
                             end
                         end
                     end
                 end
-                
-                if #objetivos > 0 then
-                    local swingRemote, hitTargetsRemote
-                    for _, obj in ipairs(character:GetChildren()) do
+                if #objetivos>0 then
+                    local swingRE,hitRE
+                    for _,obj in ipairs(character:GetChildren()) do
                         if obj:IsA("Tool") or (obj:IsA("Model") and obj:FindFirstChild("HitTargets")) then
-                            if obj:FindFirstChild("Swing") then swingRemote = obj.Swing end
-                            if obj:FindFirstChild("HitTargets") then hitTargetsRemote = obj.HitTargets end
+                            if obj:FindFirstChild("Swing") then swingRE=obj.Swing end
+                            if obj:FindFirstChild("HitTargets") then hitRE=obj.HitTargets end
                         end
                     end
-                    
-                    if hitTargetsRemote and hitTargetsRemote:IsA("RemoteEvent") then
-                        if swingRemote and swingRemote:IsA("RemoteEvent") then
-                            task.spawn(function() swingRemote:FireServer() end)
+                    if hitRE and hitRE:IsA("RemoteEvent") then
+                        if swingRE and swingRE:IsA("RemoteEvent") then
+                            task.spawn(function() swingRE:FireServer() end)
                         end
-                        for i = 1, MULTI_HIT do
-                            hitTargetsRemote:FireServer(objetivos)
-                        end
+                        for i=1,MULTI_HIT do hitRE:FireServer(objetivos) end
                     end
                 end
             end
@@ -218,41 +478,151 @@ task.spawn(function()
     end
 end)
 
--- BUCLE 3: ESP CON DETECCIÓN INTELIGENTE
+local function removerEsp(m)
+    local h=m:FindFirstChild("EspEfecto")
+    local b=m:FindFirstChild("EspTexto")
+    if h then h:Destroy() end
+    if b then b:Destroy() end
+end
+
+local function aplicarEspItem(m, nombre, col)
+    local hl=m:FindFirstChild("EspEfecto")
+    if not hl then
+        hl=Instance.new("Highlight")
+        hl.Name="EspEfecto"
+        hl.FillColor=col
+        hl.FillTransparency=0.65
+        hl.OutlineColor=col
+        hl.OutlineTransparency=0.2
+        hl.Adornee=m
+        hl.Parent=m
+    else
+        hl.FillColor=col
+        hl.OutlineColor=col
+    end
+
+    local bb=m:FindFirstChild("EspTexto")
+    if not bb then
+        bb=Instance.new("BillboardGui")
+        bb.Name="EspTexto"
+        bb.Size=UDim2.new(0,100,0,20)
+        bb.AlwaysOnTop=true
+        bb.Adornee=m
+        bb.ExtentsOffset=Vector3.new(0,2.5,0)
+        bb.Parent=m
+
+        local lbl=Instance.new("TextLabel")
+        lbl.Name="EspLabel"
+        lbl.Size=UDim2.new(1,0,1,0)
+        lbl.BackgroundTransparency=1
+        lbl.TextColor3=col
+        lbl.TextStrokeColor3=Color3.new(0,0,0)
+        lbl.TextStrokeTransparency=0
+        lbl.Font=Enum.Font.GothamBold
+        lbl.TextSize=12
+        lbl.Text=nombre
+        lbl.TextXAlignment=Enum.TextXAlignment.Center
+        lbl.Parent=bb
+    else
+        local lbl=bb:FindFirstChild("EspLabel")
+        if lbl then lbl.TextColor3=col end
+    end
+end
+
+local function aplicarEspCrate(m, col)
+    local hl=m:FindFirstChild("EspEfecto")
+    if not hl then
+        hl=Instance.new("Highlight")
+        hl.Name="EspEfecto"
+        hl.FillColor=col
+        hl.FillTransparency=0.5
+        hl.OutlineColor=col
+        hl.OutlineTransparency=0
+        hl.Adornee=m
+        hl.Parent=m
+    else
+        hl.FillColor=col
+        hl.OutlineColor=col
+    end
+    
+    local bb=m:FindFirstChild("EspTexto")
+    if not bb then
+        bb=Instance.new("BillboardGui")
+        bb.Name="EspTexto"
+        bb.Size=UDim2.new(0,80,0,20)
+        bb.AlwaysOnTop=true
+        bb.Adornee=m
+        bb.ExtentsOffset=Vector3.new(0,3,0)
+        bb.Parent=m
+        
+        local lbl=Instance.new("TextLabel")
+        lbl.Name="EspLabel"
+        lbl.Size=UDim2.new(1,0,1,0)
+        lbl.BackgroundTransparency=1
+        lbl.TextColor3=col
+        lbl.TextStrokeColor3=Color3.new(0,0,0)
+        lbl.TextStrokeTransparency=0
+        lbl.Font=Enum.Font.GothamBold
+        lbl.TextSize=11
+        lbl.Text="Crate"
+        lbl.TextXAlignment=Enum.TextXAlignment.Center
+        lbl.Parent=bb
+    else
+        local lbl=bb:FindFirstChild("EspLabel")
+        if lbl then lbl.TextColor3=col end
+    end
+end
+
+local function anyEsp()
+    return State.Battery or State.BatteryPack or State.Fuel
+        or State.Bandage or State.Medkit or State.Crates
+end
+
+local function limpiarEsp()
+    for _,i in ipairs(Workspace:GetDescendants()) do
+        if i.Name=="EspEfecto" or i.Name=="EspTexto" then i:Destroy() end
+    end
+end
+
 task.spawn(function()
     while true do
         task.wait(0.5)
-        if EspActivo then
-            -- 1. Objetos tirados
-            local carpetaDropped = Workspace:FindFirstChild("DroppedItems")
-            if carpetaDropped then
-                for _, item in ipairs(carpetaDropped:GetChildren()) do
-                    local n = item.Name:upper()
-                    if n ~= "SCRAP" and not n:find("SCRAP") then
-                        if n == "BATTERY" then aplicarEspAObjeto(item, "🔋 BATTERY", Color3.fromRGB(50, 255, 50))
-                        elseif n == "BATTERY PACK" or n:find("BATTERY") then aplicarEspAObjeto(item, "🔋 BATTERY (x3)", Color3.fromRGB(0, 200, 100))
-                        elseif n == "FUEL" or n:find("FUEL") then aplicarEspAObjeto(item, "⛽ FUEL", Color3.fromRGB(255, 100, 50))
-                        elseif n:find("BANDAGE") or n:find("VENDA") then aplicarEspAObjeto(item, "🩹 VENDA", Color3.fromRGB(255, 150, 150))
-                        elseif n:find("MEDKIT") or n:find("BOTIQUIN") then aplicarEspAObjeto(item, "🏥 BOTIQUÍN", Color3.fromRGB(255, 20, 20))
+        if anyEsp() then
+            local dropped=Workspace:FindFirstChild("DroppedItems")
+            if dropped then
+                for _,item in ipairs(dropped:GetChildren()) do
+                    local n=item.Name:upper()
+                    if not n:find("SCRAP") then
+                        if n=="BATTERY" and State.Battery then
+                            aplicarEspItem(item,"Battery",Color3.fromRGB(50,230,50))
+                        elseif n:find("BATTERY") and n~="BATTERY" and State.BatteryPack then
+                            aplicarEspItem(item,"Battery Pack",Color3.fromRGB(0,200,100))
+                        elseif n:find("FUEL") and State.Fuel then
+                            aplicarEspItem(item,"Fuel",Color3.fromRGB(255,80,80))
+                        elseif n:find("BANDAGE") and State.Bandage then
+                            aplicarEspItem(item,"Bandage",Color3.fromRGB(255,230,80))
+                        elseif n:find("MEDKIT") and State.Medkit then
+                            aplicarEspItem(item,"Medkit",Color3.fromRGB(80,200,255))
+                        else
+                            removerEsp(item)
                         end
                     end
                 end
             end
-
-            -- 2. Mapa: Cajas y Barriles (Lógica de Prompt mejorada)
-            local mapFolder = Workspace:FindFirstChild("Map")
-            if mapFolder then
-                for _, obj in ipairs(mapFolder:GetDescendants()) do
-                    if (obj:IsA("Model") or obj:IsA("BasePart")) then
-                        local prompt = obj:FindFirstChildOfClass("ProximityPrompt") or (obj:FindFirstChild("Hitbox") and obj.Hitbox:FindFirstChildOfClass("ProximityPrompt"))
-                        
-                        if prompt then
-                            local accion = prompt.ActionText:upper()
-                            -- Filtramos por prompts de acción real, ignorando basura
-                            if accion:find("ABRIR") or accion:find("OPEN") then
-                                aplicarEspAObjeto(obj, "CAJA", Color3.fromRGB(255, 170, 0))
-                            elseif accion:find("ROMPER") or accion:find("BREAK") or accion:find("HIT") or accion:find("GOLPE") then
-                                aplicarEspAObjeto(obj, "BARRIL", Color3.fromRGB(160, 82, 45))
+            if State.Crates then
+                local crates=Workspace:FindFirstChild("Map") and Workspace.Map:FindFirstChild("Crates")
+                if crates then
+                    for _,caja in ipairs(crates:GetChildren()) do
+                        if caja:IsA("Model") or caja:IsA("BasePart") then
+                            local hb=caja:FindFirstChild("Hitbox") or caja
+                            local pr=hb:FindFirstChildOfClass("ProximityPrompt")
+                                    or caja:FindFirstChildOfClass("ProximityPrompt")
+                            if not pr or not pr.Enabled
+                            or (pr.ActionText and pr.ActionText:upper():find("VACIO"))
+                            or (pr.ObjectText and pr.ObjectText:upper():find("VACIO")) then
+                                removerEsp(caja)
+                            else
+                                aplicarEspCrate(caja, Color3.fromRGB(255,140,0))
                             end
                         end
                     end
@@ -264,23 +634,32 @@ task.spawn(function()
     end
 end)
 
--- BUCLE 4: MOTOR DE NOCLIP
+local noclipWasOn = false
+
 RunService.Stepped:Connect(function()
-    if NoclipActivo then
-        local character = LocalPlayer.Character
-        if character then
-            for _, v in ipairs(character:GetDescendants()) do
-                if v:IsA("BasePart") and v.CanCollide == true then
-                    v.CanCollide = false
-                end
+    local char=LocalPlayer.Character
+    if not char then return end
+    if State.Noclip then
+        noclipWasOn = true
+        for _,v in ipairs(char:GetDescendants()) do
+            if v:IsA("BasePart") and v.CanCollide then
+                v.CanCollide = false
+            end
+        end
+    elseif noclipWasOn then
+        noclipWasOn = false
+        for _,v in ipairs(char:GetDescendants()) do
+            if v:IsA("BasePart") and not v.CanCollide then
+                v.CanCollide = true
             end
         end
     end
 end)
 
--- INFINITE JUMP
 UserInputService.JumpRequest:Connect(function()
-    local character = LocalPlayer.Character
-    local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-    if humanoid then humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end
+    local char=LocalPlayer.Character
+    local hum=char and char:FindFirstChildOfClass("Humanoid")
+    if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
 end)
+
+print("[Nick Hub V2] OK - queue_on_teleport activado")
