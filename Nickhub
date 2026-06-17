@@ -5,7 +5,7 @@
 -- FUNCIÓN PARA MANTENER EL SCRIPT ACTIVO EN TELEPORTES
 if queue_on_teleport then
     queue_on_teleport([[
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/tu_usuario/tu_repo/main/nick_hub_v2.lua", true))()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/Moliinier/spotify-backend/refs/heads/main/Nickhub", true))()
     ]])
 end
 
@@ -662,4 +662,4 @@ UserInputService.JumpRequest:Connect(function()
     if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
 end)
 
-print("[Nick Hub V2] OK - queue_on_teleport activado")
+print("[Nick Hub V2] ✅ OK - Auto-reload activado")
