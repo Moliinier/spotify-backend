@@ -1,4 +1,4 @@
- -- SERVICIOS
+-- SERVICIOS
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
@@ -10,7 +10,7 @@ local COOLDOWN = 0.12
 local MAX_DISTANCIA = 14  
 local MULTI_HIT = 2       
 local VELOCIDAD_NORMAL = 31      
-local VELOCIDAD_NOCLIP = 9
+local VELOCIDAD_NOCLIP = 11
 
 local AuraActiva = false
 local EspActivo = false
@@ -98,12 +98,11 @@ BotonNoclip.MouseButton1Click:Connect(function()
     BotonNoclip.Text = NoclipActivo and "NOCLIP: ON" or "NOCLIP: OFF"
 end)
 
--- SISTEMA VISUAL ESP DE ESTADO DINÁMICO
+-- SISTEMA VISUAL ESP MEJORADO
 local function aplicarEspAObjeto(modelo, texto, color)
     local highlight = modelo:FindFirstChild("EspEfecto")
     local billboard = modelo:FindFirstChild("EspTexto")
     
-    -- Si ya existen, actualizamos dinámicamente sus textos y colores por si cambió de estado (abierta)
     if highlight and billboard then
         highlight.FillColor = color
         local label = billboard:FindFirstChildOfClass("TextLabel")
@@ -114,33 +113,35 @@ local function aplicarEspAObjeto(modelo, texto, color)
         return
     end
 
-    -- Si no existen, los creamos desde cero
     if not highlight then
         highlight = Instance.new("Highlight")
         highlight.Name = "EspEfecto"
         highlight.FillColor = color
-        highlight.FillTransparency = 0.6
-        highlight.OutlineColor = Color3.fromRGB(0, 0, 0)
-        highlight.OutlineTransparency = 0
+        highlight.FillTransparency = 0.5
+        highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+        highlight.OutlineTransparency = 0.3
         highlight.Adornee = modelo
         highlight.Parent = modelo
 
         billboard = Instance.new("BillboardGui")
         billboard.Name = "EspTexto"
-        billboard.Size = UDim2.new(0, 140, 0, 30)
+        billboard.Size = UDim2.new(0, 150, 0, 35)
         billboard.AlwaysOnTop = true
         billboard.Adornee = modelo
-        billboard.ExtentsOffset = Vector3.new(0, 2, 0)
+        billboard.ExtentsOffset = Vector3.new(0, 2.5, 0)
 
         local label = Instance.new("TextLabel")
         label.Size = UDim2.new(1, 0, 1, 0)
         label.BackgroundTransparency = 1
         label.TextColor3 = color
-        label.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-        label.TextStrokeTransparency = 0
-        label.Font = Enum.Font.SourceSansBold
-        label.TextSize = 13
+        label.Font = Enum.Font.GothamBlack
+        label.TextSize = 14
         label.Text = texto
+        
+        local stroke = Instance.new("UIStroke")
+        stroke.Color = Color3.fromRGB(15, 15, 15)
+        stroke.Thickness = 1.5
+        stroke.Parent = label
 
         label.Parent = billboard
         billboard.Parent = modelo
@@ -217,47 +218,43 @@ task.spawn(function()
     end
 end)
 
--- BUCLE 3: ESP CON DETECCIÓN INTELIGENTE DE CAJAS ABIERTAS
+-- BUCLE 3: ESP CON DETECCIÓN INTELIGENTE
 task.spawn(function()
     while true do
         task.wait(0.5)
         if EspActivo then
-            -- Escaneo de Objetos Tirados (DroppedItems)
+            -- 1. Objetos tirados
             local carpetaDropped = Workspace:FindFirstChild("DroppedItems")
             if carpetaDropped then
                 for _, item in ipairs(carpetaDropped:GetChildren()) do
                     local n = item.Name:upper()
                     if n ~= "SCRAP" and not n:find("SCRAP") then
-                        if n == "BATTERY" then
-                            aplicarEspAObjeto(item, "🔋 BATTERY", Color3.fromRGB(50, 255, 50))
-                        elseif n == "BATTERY PACK" or n:find("BATTERY") then
-                            aplicarEspAObjeto(item, "🔋 BATTERY (x3)", Color3.fromRGB(0, 200, 100))
-                        elseif n == "FUEL" or n == "REFINED FUEL" or n:find("FUEL") then
-                            aplicarEspAObjeto(item, "⛽ FUEL", Color3.fromRGB(255, 50, 50))
+                        if n == "BATTERY" then aplicarEspAObjeto(item, "🔋 BATTERY", Color3.fromRGB(50, 255, 50))
+                        elseif n == "BATTERY PACK" or n:find("BATTERY") then aplicarEspAObjeto(item, "🔋 BATTERY (x3)", Color3.fromRGB(0, 200, 100))
+                        elseif n == "FUEL" or n:find("FUEL") then aplicarEspAObjeto(item, "⛽ FUEL", Color3.fromRGB(255, 100, 50))
+                        elseif n:find("BANDAGE") or n:find("VENDA") then aplicarEspAObjeto(item, "🩹 VENDA", Color3.fromRGB(255, 150, 150))
+                        elseif n:find("MEDKIT") or n:find("BOTIQUIN") then aplicarEspAObjeto(item, "🏥 BOTIQUÍN", Color3.fromRGB(255, 20, 20))
                         end
                     end
                 end
             end
 
-            -- Escaneo Dinámico de Cajas en la ruta de la Auditoría
-            local carpetaCrates = Workspace:FindFirstChild("Map") and Workspace.Map:FindFirstChild("Crates")
-            if carpetaCrates then
-                for _, caja in ipairs(carpetaCrates:GetChildren()) do
-                    if caja:IsA("Model") or caja:IsA("BasePart") then
+            -- 2. Mapa: Cajas y Barriles (Lógica de Prompt mejorada)
+            local mapFolder = Workspace:FindFirstChild("Map")
+            if mapFolder then
+                for _, obj in ipairs(mapFolder:GetDescendants()) do
+                    if (obj:IsA("Model") or obj:IsA("BasePart")) then
+                        local prompt = obj:FindFirstChildOfClass("ProximityPrompt") or (obj:FindFirstChild("Hitbox") and obj.Hitbox:FindFirstChildOfClass("ProximityPrompt"))
                         
-                        -- Buscamos si la caja conserva su Hitbox y su prompt interactivo activo
-                        local hitbox = caja:FindFirstChild("Hitbox") or caja
-                        local prompt = hitbox:FindFirstChildOfClass("ProximityPrompt") or caja:FindFirstChildOfClass("ProximityPrompt") or caja:FindFirstChild("Hitbox") and caja.Hitbox:FindFirstChildOfClass("ProximityPrompt")
-                        
-                        -- Lógica de Estado: Si no tiene prompt, o el prompt está deshabilitado o dice que está vacío/abierto:
-                        if not prompt or prompt.Enabled == false or prompt.ActionText:upper():find("VACIO") or prompt.ObjectText:upper():find("VACIO") then
-                            -- Cambia a GRIS OSCURO indicando que ya la abriste
-                            aplicarEspAObjeto(caja, "❌ CAJA ABIERTA", Color3.fromRGB(70, 70, 70))
-                        else
-                            -- Sigue NARANJA si está lista para lootear
-                            aplicarEspAObjeto(caja, "📦 CAJA DE LOOT", Color3.fromRGB(255, 140, 0))
+                        if prompt then
+                            local accion = prompt.ActionText:upper()
+                            -- Filtramos por prompts de acción real, ignorando basura
+                            if accion:find("ABRIR") or accion:find("OPEN") then
+                                aplicarEspAObjeto(obj, "CAJA", Color3.fromRGB(255, 170, 0))
+                            elseif accion:find("ROMPER") or accion:find("BREAK") or accion:find("HIT") or accion:find("GOLPE") then
+                                aplicarEspAObjeto(obj, "BARRIL", Color3.fromRGB(160, 82, 45))
+                            end
                         end
-                        
                     end
                 end
             end
@@ -285,7 +282,5 @@ end)
 UserInputService.JumpRequest:Connect(function()
     local character = LocalPlayer.Character
     local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-    if humanoid then 
-        humanoid:ChangeState(Enum.HumanoidStateType.Jumping) 
-    end
+    if humanoid then humanoid:ChangeState(Enum.HumanoidStateType.Jumping) end
 end)
